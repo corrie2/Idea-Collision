@@ -1,0 +1,7 @@
+openai>=1.0.0
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+chromadb>=0.4.0
+# Optional: for Chinese semantic embedding (large: ~2GB with PyTorch)
+# Install separately: pip install sentence-transformers
+# Then set embedding_model: "shibing624/text2vec-base-chinese" in config

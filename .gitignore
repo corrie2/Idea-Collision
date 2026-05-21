@@ -1,0 +1,35 @@
+# User data
+data/
+output/
+uploads/
+knowledge/chromadb/
+knowledge/relations.db
+
+# Sensitive info
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node modules
+web/node_modules/
+
+# Build output
+web/dist/
