@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getCollision, getExportMdUrl, getExportHtmlUrl } from '../api/client'
 import ReactMarkdown from 'react-markdown'
@@ -12,6 +12,20 @@ export default function ReportPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [activeSection, setActiveSection] = useState('all')
+  const [showBackToTop, setShowBackToTop] = useState(false)
+
+  // Listen for scroll to show/hide back-to-top button
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowBackToTop(window.scrollY > 400)
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   useEffect(() => {
     getCollision(id)
@@ -232,6 +246,20 @@ export default function ReportPage() {
           ⚡ 发起新碰撞
         </Link>
       </div>
+
+      {/* Back to Top floating button */}
+      {showBackToTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-8 right-8 w-11 h-11 bg-amber-500 text-white rounded-full
+                     shadow-lg hover:bg-amber-600 hover:shadow-xl transition-all cursor-pointer
+                     flex items-center justify-center text-lg z-50
+                     animate-fade-in"
+          title="回到顶部"
+        >
+          ↑
+        </button>
+      )}
     </div>
   )
 }
