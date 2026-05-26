@@ -281,6 +281,196 @@ async def knowledge_stats(session_id: str):
     return session.get("knowledge_stats", {})
 
 
+@app.get("/api/knowledge/graph")
+async def knowledge_graph(domain: str = None, limit: int = 200):
+    """Get knowledge graph data (nodes + edges) for visualization."""
+    store = get_store()
+    if not store:
+        return JSONResponse(status_code=503, content={"error": "Knowledge base not available"})
+
+    # Get all concepts
+    concepts = store.get_all_concepts()
+    if domain:
+        concepts = [c for c in concepts if c["metadata"].get("domain") == domain]
+
+    # Get all relations
+    relations = store._rows_to_dicts(
+        store.rel_db.execute("SELECT * FROM relations")
+    )
+
+    # Build nodes from concepts
+    nodes = []
+    node_ids = set()
+    for c in concepts[:limit]:
+        cid = c["id"]
+        node_ids.add(cid)
+        nodes.append({
+            "id": cid,
+            "label": c["metadata"].get("name", ""),
+            "type": "concept",
+            "domain": c["metadata"].get("domain", ""),
+            "mention_count": c["metadata"].get("mention_count", 1),
+            "description": c["metadata"].get("description", ""),
+        })
+
+    # Add ideas, insights, critiques as nodes if they have relations
+    related_entity_ids = set()
+    for r in relations:
+        if r["source_type"] != "concept":
+            related_entity_ids.add((r["source_type"], r["source_id"]))
+        if r["target_type"] != "concept":
+            related_entity_ids.add((r["target_type"], r["target_id"]))
+
+    # Fetch related entities
+    for entity_type, entity_id in related_entity_ids:
+        if entity_id in node_ids:
+            continue
+        try:
+            if entity_type == "idea":
+                col = store.ideas_col
+            elif entity_type == "insight":
+                col = store.insights_col
+            elif entity_type == "critique":
+                col = store.critiques_col
+            else:
+                continue
+            res = col.get(ids=[entity_id])
+            if res and res["ids"]:
+                doc = res["documents"][0] if res["documents"] else ""
+                nodes.append({
+                    "id": entity_id,
+                    "label": doc[:50] + ("..." if len(doc) > 50 else ""),
+                    "type": entity_type,
+                    "domain": res["metadatas"][0].get("domain", "") if res["metadatas"] else "",
+                })
+                node_ids.add(entity_id)
+        except Exception:
+            pass
+
+    # Build edges (only between known nodes)
+    edges = []
+    for r in relations:
+        if r["source_id"] in node_ids and r["target_id"] in node_ids:
+            edges.append({
+                "source": r["source_id"],
+                "target": r["target_id"],
+                "relation": r["relation"],
+                "context": r.get("context", ""),
+            })
+
+    # Calculate degree for each node
+    degree_map = {}
+    for e in edges:
+        degree_map[e["source"]] = degree_map.get(e["source"], 0) + 1
+        degree_map[e["target"]] = degree_map.get(e["target"], 0) + 1
+    for node in nodes:
+        node["degree"] = degree_map.get(node["id"], 0)
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "stats": {
+            "total_nodes": len(nodes),
+            "total_edges": len(edges),
+            "concepts": len([n for n in nodes if n["type"] == "concept"]),
+            "ideas": len([n for n in nodes if n["type"] == "idea"]),
+            "insights": len([n for n in nodes if n["type"] == "insight"]),
+            "critiques": len([n for n in nodes if n["type"] == "critique"]),
+        }
+    }
+
+
+@app.get("/api/knowledge/export")
+async def knowledge_export(format: str = "json"):
+    """Export knowledge base data."""
+    store = get_store()
+    if not store:
+        return JSONResponse(status_code=503, content={"error": "Knowledge base not available"})
+
+    data = store.export_all()
+
+    if format == "json":
+        import json
+        content = json.dumps(data, ensure_ascii=False, indent=2)
+        return Response(
+            content=content,
+            media_type="application/json",
+            headers={"Content-Disposition": "attachment; filename=knowledge_export.json"}
+        )
+    elif format == "md":
+        md = _export_knowledge_as_markdown(data)
+        return Response(
+            content=md,
+            media_type="text/markdown",
+            headers={"Content-Disposition": "attachment; filename=knowledge_export.md"}
+        )
+    else:
+        return JSONResponse(status_code=400, content={"error": f"Unknown format: {format}. Use 'json' or 'md'."})
+
+
+@app.post("/api/knowledge/import")
+async def knowledge_import(request: Request):
+    """Import knowledge base data."""
+    store = get_store()
+    if not store:
+        return JSONResponse(status_code=503, content={"error": "Knowledge base not available"})
+
+    try:
+        data = await request.json()
+        mode = data.get("mode", "merge")
+        if mode not in ("merge", "replace"):
+            return JSONResponse(status_code=400, content={"error": "mode must be 'merge' or 'replace'"})
+
+        store.import_all(data, mode=mode)
+        stats = store.stats()
+        return {"success": True, "mode": mode, "stats": stats}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+
+
+def _export_knowledge_as_markdown(data: dict) -> str:
+    """Convert knowledge export data to markdown."""
+    lines = ["# Idea Collision 知识库导出\n"]
+    lines.append(f"导出时间: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+
+    ideas = data.get("ideas", [])
+    if ideas:
+        lines.append(f"\n## 创意 ({len(ideas)}条)\n")
+        for item in ideas:
+            meta = item.get("metadata", {})
+            lines.append(f"- **{meta.get('topic', 'N/A')}** (by {meta.get('agent_name', 'unknown')})")
+            lines.append(f"  {item.get('document', '')}\n")
+
+    insights = data.get("insights", [])
+    if insights:
+        lines.append(f"\n## 洞见 ({len(insights)}条)\n")
+        for item in insights:
+            meta = item.get("metadata", {})
+            lines.append(f"- [{meta.get('insight_type', 'N/A')}] {item.get('document', '')}\n")
+
+    critiques = data.get("critiques", [])
+    if critiques:
+        lines.append(f"\n## 质疑 ({len(critiques)}条)\n")
+        for item in critiques:
+            meta = item.get("metadata", {})
+            lines.append(f"- [{meta.get('severity', 'N/A')}] {item.get('document', '')}\n")
+
+    concepts = data.get("concepts", [])
+    if concepts:
+        lines.append(f"\n## 概念 ({len(concepts)}条)\n")
+        for item in concepts:
+            meta = item.get("metadata", {})
+            lines.append(f"- **{meta.get('name', 'N/A')}**: {meta.get('description', '')}\n")
+
+    relations = data.get("relations", [])
+    if relations:
+        lines.append(f"\n## 关系 ({len(relations)}条)\n")
+        for r in relations:
+            lines.append(f"- {r['source_type']}→{r['target_type']}: {r['relation']} ({r.get('context', '')})\n")
+
+    return "\n".join(lines)
+
+
 # ── Export ──
 
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -515,24 +705,72 @@ def get_store():
 
 @app.post("/api/materials/upload")
 async def upload_materials(files: list[UploadFile] = File(...)):
-    """Upload PDF files → extract → store in knowledge base."""
-    from pdf_processor import process_pdf
+    """Upload PDF/MD files → extract → store in knowledge base."""
+    from pdf_processor import process_pdf, chunk_text, _extract_pdf_concepts
+    from knowledge.schema import Idea
 
     store = get_store()
     session_id = f"pdf_{uuid.uuid4().hex[:8]}"
     results = []
 
     for file in files:
-        if not file.filename.lower().endswith(".pdf"):
-            results.append({"filename": file.filename, "error": "不是 PDF 文件"})
-            continue
-
+        filename_lower = file.filename.lower()
         file_path = UPLOAD_DIR / f"{session_id}_{file.filename}"
         content = await file.read()
+
         with open(file_path, "wb") as f:
             f.write(content)
 
-        result = process_pdf(str(file_path), file.filename, store, session_id)
+        if filename_lower.endswith(".pdf"):
+            # Process PDF
+            result = process_pdf(str(file_path), file.filename, store, session_id)
+        elif filename_lower.endswith(".md") or filename_lower.endswith(".txt"):
+            # Process Markdown/Text files
+            try:
+                text = content.decode("utf-8")
+            except UnicodeDecodeError:
+                text = content.decode("gbk", errors="ignore")
+
+            if not text.strip():
+                result = {"filename": file.filename, "error": "文件内容为空"}
+            else:
+                # Chunk text
+                chunks = chunk_text(text)
+
+                # Store in ChromaDB
+                pdf_id = uuid.uuid4().hex[:8]
+                timestamp = time.time()
+                ideas = []
+                for i, chunk in enumerate(chunks):
+                    idea = Idea(
+                        text=chunk,
+                        agent_name=f"PDF:{file.filename}",
+                        round=i,
+                        topic=f"Document: {file.filename}",
+                        session_id=session_id or f"pdf_{pdf_id}",
+                        domain="document",
+                        timestamp=timestamp,
+                        id=f"pdf_{pdf_id}_chunk_{i}",
+                    )
+                    ideas.append(idea)
+
+                if ideas:
+                    store.add_ideas(ideas)
+
+                # Extract concepts
+                _extract_pdf_concepts(text[:3000], file.filename, store)
+
+                result = {
+                    "filename": file.filename,
+                    "pages": 0,  # Not applicable for md/txt
+                    "chunks_stored": len(chunks),
+                    "text_length": len(text),
+                    "text_preview": text[:500] + "..." if len(text) > 500 else text,
+                }
+        else:
+            results.append({"filename": file.filename, "error": "不支持的文件格式，请上传 PDF 或 MD 文件"})
+            continue
+
         results.append(result)
 
     # Persist
@@ -787,13 +1025,13 @@ async def _run_collision_streaming(arena, topic, on_event, session):
     for agent in arena.agents:
         if session["cancelled"]:
             raise CancelledError()
-        await on_event("agent_start", {"agent": agent.name, "round": 1})
+        await on_event("agent_thinking", {"agent": agent.name, "round": 1, "message": f"{agent.name} 正在思考..."})
 
         extra = context_map.get(agent.name, "")
 
         # Run in thread to avoid blocking
         ideas = await asyncio.get_event_loop().run_in_executor(
-            None, agent.generate_ideas, topic, config.ideas_per_agent_round1, extra
+            None, agent.generate_ideas, topic, config.ideas_per_agent_round1, extra, 1
         )
 
         content = "\n".join(f"  - {c}" for c in ideas) if isinstance(ideas, list) else str(ideas)
@@ -815,15 +1053,23 @@ async def _run_collision_streaming(arena, topic, on_event, session):
         await on_event("round_start", {"round": r})
         history_text = _format_history(history)
 
+        # Early stopping check: if agents voted to stop, end early
+        early_stop_votes = 0
+
         for agent in arena.agents:
             if session["cancelled"]:
                 raise CancelledError()
-            await on_event("agent_start", {"agent": agent.name, "round": r})
+            await on_event("agent_thinking", {"agent": agent.name, "round": r, "message": f"{agent.name} 正在思考..."})
 
             extra = context_map.get(agent.name, "")
             response = await asyncio.get_event_loop().run_in_executor(
-                None, agent.respond_to_others, topic, history_text, extra
+                None, agent.respond_to_others, topic, history_text, extra, r
             )
+
+            # Check for early stop signal
+            if "[提前收敛]" in response or "[EARLY_STOP]" in response:
+                early_stop_votes += 1
+                response = response.replace("[提前收敛]", "").replace("[EARLY_STOP]", "").strip()
 
             for token in _tokenize(response):
                 await on_event("agent_token", {"agent": agent.name, "token": token})
@@ -835,6 +1081,11 @@ async def _run_collision_streaming(arena, topic, on_event, session):
             await on_event("agent_end", {"agent": agent.name, "round": r})
 
         await on_event("round_end", {"round": r})
+
+        # Early stopping: if majority voted to stop, skip remaining rounds
+        if early_stop_votes >= len(arena.agents) // 2:
+            await on_event("status", {"message": f"讨论已收敛，提前结束碰撞（{early_stop_votes}票）"})
+            break
 
     # Synthesis
     await on_event("status", {"message": "最终融合..."})
@@ -898,12 +1149,38 @@ async def _run_collision_streaming(arena, topic, on_event, session):
         except Exception as e:
             await on_event("status", {"message": f"知识提取失败: {e}"})
 
+    # Quality evaluation
+    score_data = None
+    try:
+        from evaluator import CollisionEvaluator
+        evaluator = CollisionEvaluator(config)
+        await on_event("status", {"message": "评估碰撞质量..."})
+        score = await asyncio.get_event_loop().run_in_executor(
+            None,
+            evaluator.evaluate,
+            topic, history, synthesis, review,
+            arena._knowledge_store
+        )
+        score_data = {
+            "novelty": score.novelty,
+            "depth": score.depth,
+            "diversity": score.diversity,
+            "feasibility": score.feasibility,
+            "intensity": score.intensity,
+            "overall": score.overall,
+            "details": score.details,
+        }
+        await on_event("quality_score", score_data)
+    except Exception as e:
+        await on_event("status", {"message": f"质量评估失败: {e}"})
+
     return {
         "topic": topic,
         "session_id": session_id_val,
         "history": history,
         "synthesis": synthesis,
         "review": review,
+        "score": score_data,
     }
 
 

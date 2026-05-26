@@ -14,6 +14,7 @@ export default function CollisionPage() {
   const [statusMsg, setStatusMsg] = useState('正在连接...')
   const [topic, setTopic] = useState('')
   const [agentProgress, setAgentProgress] = useState({}) // agentName -> {active, done}
+  const [qualityScore, setQualityScore] = useState(null)  // {novelty, depth, diversity, feasibility, intensity, overall}
 
   const wsRef = useRef(null)
   const messagesEndRef = useRef(null)
@@ -69,15 +70,31 @@ export default function CollisionPage() {
         break
       }
 
+      case 'agent_thinking': {
+        // Show "thinking" status for the agent
+        setAgentProgress(prev => ({ ...prev, [msg.agent]: { active: true, done: false, thinking: true } }))
+        setStatusMsg(msg.message || `${msg.agent} 正在思考...`)
+        // Pre-create the message slot
+        const thinkKey = `${msg.agent}_${msg.round}`
+        setMessages(prev => {
+          if (msgIndexMap.current[thinkKey] !== undefined) return prev
+          msgIndexMap.current[thinkKey] = prev.length
+          return [...prev, { agent: msg.agent, content: '', round: msg.round, streaming: true, thinking: true }]
+        })
+        break
+      }
+
       case 'agent_token': {
         const key = `${msg.agent}_${currentRound}`
+        // Clear thinking state when tokens arrive
+        setAgentProgress(prev => ({ ...prev, [msg.agent]: { ...prev[msg.agent], thinking: false } }))
         // Find the latest message for this agent (might be final/review round)
         setMessages(prev => {
           const newMsgs = [...prev]
           // Find last message for this agent that's still streaming
           for (let i = newMsgs.length - 1; i >= 0; i--) {
             if (newMsgs[i].agent === msg.agent && newMsgs[i].streaming) {
-              newMsgs[i] = { ...newMsgs[i], content: newMsgs[i].content + msg.token }
+              newMsgs[i] = { ...newMsgs[i], content: newMsgs[i].content + msg.token, thinking: false }
               break
             }
           }
@@ -115,6 +132,11 @@ export default function CollisionPage() {
 
       case 'knowledge_update':
         setStatusMsg(`知识已更新: ${msg.ideas || 0} 想法, ${msg.insights || 0} 洞见`)
+        break
+
+      case 'quality_score':
+        setQualityScore(msg)
+        setStatusMsg(`质量评分: ${msg.overall?.toFixed(1) || '?'}/10`)
         break
 
       case 'collision_done':
@@ -280,6 +302,40 @@ export default function CollisionPage() {
               />
             ))}
             <div ref={messagesEndRef} />
+          </div>
+        )}
+
+        {/* Quality Score Panel */}
+        {qualityScore && (
+          <div className="mt-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-800">📊 碰撞质量评估</h3>
+              <span className="text-2xl font-bold text-amber-600">{qualityScore.overall?.toFixed(1)}<span className="text-sm text-gray-400">/10</span></span>
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {[
+                { key: 'novelty', label: '新颖性', icon: '✨' },
+                { key: 'depth', label: '深度', icon: '🔬' },
+                { key: 'diversity', label: '多样性', icon: '🎨' },
+                { key: 'feasibility', label: '可行性', icon: '⚙️' },
+                { key: 'intensity', label: '碰撞强度', icon: '⚡' },
+              ].map(dim => (
+                <div key={dim.key} className="text-center">
+                  <div className="text-lg mb-0.5">{dim.icon}</div>
+                  <div className="text-xs text-gray-500">{dim.label}</div>
+                  <div className="text-sm font-semibold text-gray-800">
+                    {qualityScore[dim.key]?.toFixed(1) || '-'}
+                  </div>
+                  {/* Mini progress bar */}
+                  <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                    <div
+                      className="bg-amber-500 h-1.5 rounded-full transition-all"
+                      style={{ width: `${(qualityScore[dim.key] || 0) * 10}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

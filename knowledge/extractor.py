@@ -29,6 +29,9 @@ class KnowledgeExtractor:
 
         print("  📦 Extracting knowledge from collision...")
 
+        # Store reference for cross-session concept matching
+        self._store_ref = store
+
         # Build full text for extraction (truncate to reduce tokens)
         full_text = self._build_full_text(history, synthesis, review)
         text_for_extraction = full_text  # Use full text
@@ -239,7 +242,9 @@ class KnowledgeExtractor:
                                          session_id: str, domain: str,
                                          ideas: list, critiques: list,
                                          insights: list) -> tuple[list, list]:
-        """Extract concepts and their relations."""
+        """Extract concepts and their relations (including cross-entity relations)."""
+        import difflib
+
         system = "你是一个知识图谱构建专家。从讨论中提取领域概念和概念间关系。"
         prompt = (
             "从以下碰撞讨论中提取关键领域概念，以及概念之间的关系。\n\n"
@@ -271,27 +276,144 @@ class KnowledgeExtractor:
                     domain=domain,
                 ))
 
-        # Build concept ID map for relations
+        # Build concept ID map for current session concepts
         concept_map = {c.name: c.id for c in concepts}
+
+        # Also load existing concepts from knowledge base for cross-session matching
+        existing_concepts = {}
+        try:
+            if hasattr(self, '_store_ref') and self._store_ref:
+                for c in self._store_ref.get_all_concepts():
+                    cname = c["metadata"].get("name", "")
+                    if cname:
+                        existing_concepts[cname] = c["id"]
+        except Exception:
+            pass
+
+        # Merge for fuzzy matching
+        all_concept_names = {**concept_map, **existing_concepts}
+
+        def find_concept_id(name: str) -> str | None:
+            """Find concept ID with fuzzy matching."""
+            # Exact match first
+            if name in all_concept_names:
+                return all_concept_names[name]
+            # Fuzzy match
+            matches = difflib.get_close_matches(name, all_concept_names.keys(), n=1, cutoff=0.6)
+            if matches:
+                return all_concept_names[matches[0]]
+            # Substring match
+            for existing_name, cid in all_concept_names.items():
+                if name in existing_name or existing_name in name:
+                    return cid
+            return None
 
         relations = []
         for item in parsed.get("relations", []):
             if isinstance(item, dict) and "from" in item and "to" in item:
-                from_name = item["from"]
-                to_name = item["to"]
-                # Only create relations between known concepts
-                if from_name in concept_map and to_name in concept_map:
+                from_id = find_concept_id(item["from"])
+                to_id = find_concept_id(item["to"])
+                if from_id and to_id:
                     relations.append(Relation(
                         source_type="concept",
-                        source_id=concept_map[from_name],
+                        source_id=from_id,
                         target_type="concept",
-                        target_id=concept_map[to_name],
+                        target_id=to_id,
                         relation=item.get("relation", "extends"),
                         context=item.get("context", ""),
                         session_id=session_id,
                     ))
 
+        # Extract cross-entity relations: idea→concept, critique→idea, insight→idea
+        cross_relations = self._extract_cross_entity_relations(
+            text, session_id, ideas, critiques, insights, concepts
+        )
+        relations.extend(cross_relations)
+
         return concepts, relations
+
+    def _extract_cross_entity_relations(self, text: str, session_id: str,
+                                         ideas: list, critiques: list,
+                                         insights: list, concepts: list) -> list:
+        """Extract relations between ideas, critiques, insights, and concepts."""
+        if not (ideas or critiques or insights or concepts):
+            return []
+
+        # Build entity lists for LLM reference
+        idea_texts = [f"[Idea-{i.id}] {i.text}" for i in ideas[:10]]
+        critique_texts = [f"[Critique-{c.id}] {c.text}" for c in critiques[:10]]
+        insight_texts = [f"[Insight-{g.id}] {g.text}" for g in insights[:10]]
+        concept_texts = [f"[Concept-{c.id}] {c.name}: {c.description}" for c in concepts[:10]]
+
+        entity_list = "\n".join(filter(None, [
+            "\n".join(idea_texts) if idea_texts else "",
+            "\n".join(critique_texts) if critique_texts else "",
+            "\n".join(insight_texts) if insight_texts else "",
+            "\n".join(concept_texts) if concept_texts else "",
+        ]))
+
+        if not entity_list.strip():
+            return []
+
+        system = "你是一个知识图谱构建专家。从讨论中提取实体间的关联关系。"
+        prompt = (
+            "以下是碰撞讨论中提取的实体列表：\n\n"
+            f"{entity_list}\n\n"
+            "请分析这些实体之间的关系，输出JSON数组。每条关系包含：\n"
+            '- source: 源实体ID（如 Idea-abc123）\n'
+            '- target: 目标实体ID\n'
+            '- relation: 关系类型\n'
+            '- context: 一句话说明\n\n'
+            '关系类型：\n'
+            '- critiques: 质疑/反驳\n'
+            '- extends: 扩展/延伸\n'
+            '- combines: 组合/融合\n'
+            '- derives_from: 衍生/基于\n'
+            '- validates: 验证/支持\n'
+            '- contradicts: 矛盾/冲突\n'
+            '- involves_concept: 涉及概念\n\n'
+            '只输出JSON数组，不要其他内容。示例：\n'
+            '[{"source": "Idea-abc123", "target": "Concept-def456", "relation": "involves_concept", "context": "该想法涉及HNSW索引结构"}]'
+        )
+
+        result = self._call_llm(system, prompt)
+        parsed = self._parse_json(result)
+        if not parsed or not isinstance(parsed, list):
+            return []
+
+        # Build ID lookup
+        id_to_type = {}
+        for i in ideas:
+            id_to_type[i.id] = "idea"
+        for c in critiques:
+            id_to_type[c.id] = "critique"
+        for g in insights:
+            id_to_type[g.id] = "insight"
+        for c in concepts:
+            id_to_type[c.id] = "concept"
+
+        relations = []
+        for item in parsed:
+            if not isinstance(item, dict):
+                continue
+            src = item.get("source", "")
+            tgt = item.get("target", "")
+            # Extract ID from format like "Idea-abc123"
+            src_id = src.split("-", 1)[-1] if "-" in src else src
+            tgt_id = tgt.split("-", 1)[-1] if "-" in tgt else tgt
+
+            if src_id in id_to_type and tgt_id in id_to_type:
+                relations.append(Relation(
+                    source_type=id_to_type[src_id],
+                    source_id=src_id,
+                    target_type=id_to_type[tgt_id],
+                    target_id=tgt_id,
+                    relation=item.get("relation", "extends"),
+                    context=item.get("context", ""),
+                    session_id=session_id,
+                ))
+
+        return relations
 
     def _extract_summary(self, topic: str, synthesis: str) -> str:
         """Generate a one-line summary of the collision."""

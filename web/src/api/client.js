@@ -53,6 +53,33 @@ export async function getKnowledgeStats(sessionId) {
   return res.json()
 }
 
+export async function getKnowledgeGraph(domain = null, limit = 200) {
+  let url = `${BASE}/api/knowledge/graph?limit=${limit}`
+  if (domain) url += `&domain=${encodeURIComponent(domain)}`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error('获取知识图谱失败')
+  return res.json()
+}
+
+export async function exportKnowledge(format = 'json') {
+  const res = await fetch(`${BASE}/api/knowledge/export?format=${format}`)
+  if (!res.ok) throw new Error('导出失败')
+  return res
+}
+
+export async function importKnowledge(data, mode = 'merge') {
+  const res = await fetch(`${BASE}/api/knowledge/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...data, mode }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error || '导入失败')
+  }
+  return res.json()
+}
+
 // ── Export API ──
 
 export function getExportMdUrl(sessionId) {

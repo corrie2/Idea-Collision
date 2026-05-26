@@ -13,6 +13,7 @@ class Arena:
         self.agents = discover_agents(config)
         self.history: list[dict] = []  # [{round, agent, content}]
         self.session_id = f"session_{int(time.time())}_{id(self) % 10000:04d}"
+        self.last_score = None  # CollisionScore from last evaluation
 
         # Knowledge base (lazy init to skip if --no-knowledge)
         self._knowledge_store = None
@@ -69,7 +70,7 @@ class Arena:
         round1_ideas = {}
         for agent in self.agents:
             extra = context_map.get(agent.name, "")
-            ideas = agent.generate_ideas(topic, self.config.ideas_per_agent_round1, extra)
+            ideas = agent.generate_ideas(topic, self.config.ideas_per_agent_round1, extra, round_num=1)
             round1_ideas[agent.name] = ideas
             entry = {"round": 1, "agent": agent.name, "content": ideas}
             self.history.append(entry)
@@ -82,7 +83,7 @@ class Arena:
 
             for agent in self.agents:
                 extra = context_map.get(agent.name, "")
-                response = agent.respond_to_others(topic, history_text, extra)
+                response = agent.respond_to_others(topic, history_text, extra, round_num=r)
                 entry = {"round": r, "agent": agent.name, "content": response}
                 self.history.append(entry)
                 preview = response[:60].replace('\n', ' ') + "..."
@@ -135,12 +136,28 @@ class Arena:
             except Exception as e:
                 print(f"  ⚠ Knowledge extraction failed: {e}")
 
+        # Step 6: Evaluate collision quality
+        try:
+            from evaluator import CollisionEvaluator
+            evaluator = CollisionEvaluator(self.config)
+            self.last_score = evaluator.evaluate(
+                topic=topic,
+                history=self.history,
+                synthesis=synthesis,
+                review=review,
+                knowledge_store=self._knowledge_store,
+            )
+            print(evaluator.format_score(self.last_score))
+        except Exception as e:
+            print(f"  ⚠ Quality evaluation failed: {e}")
+
         return {
             "topic": topic,
             "session_id": self.session_id,
             "history": self.history,
             "synthesis": synthesis,
             "review": review,
+            "score": self.last_score,
         }
 
     def _format_history(self) -> str:

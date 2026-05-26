@@ -258,11 +258,15 @@ class KnowledgeStore:
             meta["last_seen"] = time.time()
             if concept.description:
                 meta["description"] = concept.description
-            self.concepts_col.update(
-                ids=[doc_id],
-                documents=[doc_text],
-                metadatas=[meta]
-            )
+            # Must pass custom embeddings to match collection dimension
+            kwargs = {
+                "ids": [doc_id],
+                "documents": [doc_text],
+                "metadatas": [meta],
+            }
+            if self._custom_embed_fn:
+                kwargs["embeddings"] = self._custom_embed_fn([doc_text])
+            self.concepts_col.update(**kwargs)
         else:
             self._add_to_collection(
                 self.concepts_col,
@@ -302,6 +306,155 @@ class KnowledgeStore:
                         "metadata": res["metadatas"][i],
                     })
         return results
+
+    def get_all_concepts(self) -> list[dict]:
+        """Get all concepts from the knowledge base."""
+        count = self.concepts_col.count()
+        if count == 0:
+            return []
+        res = self.concepts_col.get(limit=count)
+        results = []
+        if res and res["ids"]:
+            for i, doc_id in enumerate(res["ids"]):
+                results.append({
+                    "id": doc_id,
+                    "document": res["documents"][i],
+                    "metadata": res["metadatas"][i],
+                })
+        return results
+
+    def get_all_ideas(self, limit: int = 500) -> list[dict]:
+        """Get all ideas from the knowledge base."""
+        count = min(self.ideas_col.count(), limit)
+        if count == 0:
+            return []
+        res = self.ideas_col.get(limit=count)
+        results = []
+        if res and res["ids"]:
+            for i, doc_id in enumerate(res["ids"]):
+                results.append({
+                    "id": doc_id,
+                    "document": res["documents"][i],
+                    "metadata": res["metadatas"][i],
+                })
+        return results
+
+    def get_all_critiques(self, limit: int = 500) -> list[dict]:
+        """Get all critiques from the knowledge base."""
+        count = min(self.critiques_col.count(), limit)
+        if count == 0:
+            return []
+        res = self.critiques_col.get(limit=count)
+        results = []
+        if res and res["ids"]:
+            for i, doc_id in enumerate(res["ids"]):
+                results.append({
+                    "id": doc_id,
+                    "document": res["documents"][i],
+                    "metadata": res["metadatas"][i],
+                })
+        return results
+
+    def get_all_insights(self, limit: int = 500) -> list[dict]:
+        """Get all insights from the knowledge base."""
+        count = min(self.insights_col.count(), limit)
+        if count == 0:
+            return []
+        res = self.insights_col.get(limit=count)
+        results = []
+        if res and res["ids"]:
+            for i, doc_id in enumerate(res["ids"]):
+                results.append({
+                    "id": doc_id,
+                    "document": res["documents"][i],
+                    "metadata": res["metadatas"][i],
+                })
+        return results
+
+    def export_all(self) -> dict:
+        """Export all knowledge base data for backup/transfer."""
+        return {
+            "ideas": self.get_all_ideas(),
+            "insights": self.get_all_insights(),
+            "critiques": self.get_all_critiques(),
+            "concepts": self.get_all_concepts(),
+            "relations": self._rows_to_dicts(
+                self.rel_db.execute("SELECT * FROM relations")
+            ),
+            "exported_at": time.time(),
+        }
+
+    def import_all(self, data: dict, mode: str = "merge"):
+        """Import knowledge base data. mode: 'merge' or 'replace'."""
+        if mode == "replace":
+            self.ideas_col.delete(where={})
+            self.insights_col.delete(where={})
+            self.critiques_col.delete(where={})
+            self.concepts_col.delete(where={})
+            self.rel_db.execute("DELETE FROM relations")
+            self.rel_db.commit()
+
+        # Import ideas
+        for item in data.get("ideas", []):
+            idea = Idea(
+                text=item["document"],
+                agent_name=item["metadata"].get("agent_name", "unknown"),
+                round=item["metadata"].get("round", 0),
+                topic=item["metadata"].get("topic", ""),
+                session_id=item["metadata"].get("session_id", ""),
+                domain=item["metadata"].get("domain", ""),
+                id=item["id"],
+            )
+            self.add_idea(idea)
+
+        # Import insights
+        for item in data.get("insights", []):
+            insight = Insight(
+                text=item["document"],
+                insight_type=item["metadata"].get("insight_type", "方向"),
+                topic=item["metadata"].get("topic", ""),
+                session_id=item["metadata"].get("session_id", ""),
+                domain=item["metadata"].get("domain", ""),
+                id=item["id"],
+            )
+            self.add_insight(insight)
+
+        # Import critiques
+        for item in data.get("critiques", []):
+            critique = Critique(
+                text=item["document"],
+                agent_name=item["metadata"].get("agent_name", "unknown"),
+                severity=item["metadata"].get("severity", "轻微"),
+                topic=item["metadata"].get("topic", ""),
+                session_id=item["metadata"].get("session_id", ""),
+                target_idea_summary=item["metadata"].get("target_idea_summary", ""),
+                domain=item["metadata"].get("domain", ""),
+                id=item["id"],
+            )
+            self.add_critique(critique)
+
+        # Import concepts
+        for item in data.get("concepts", []):
+            concept = Concept(
+                name=item["metadata"].get("name", ""),
+                description=item["metadata"].get("description", ""),
+                domain=item["metadata"].get("domain", ""),
+                id=item["id"],
+            )
+            self.add_concept(concept)
+
+        # Import relations
+        for r in data.get("relations", []):
+            self.rel_db.execute(
+                """INSERT OR REPLACE INTO relations
+                   (id, source_type, source_id, target_type, target_id,
+                    relation, context, session_id, timestamp)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (r["id"], r["source_type"], r["source_id"],
+                 r["target_type"], r["target_id"], r["relation"],
+                 r.get("context", ""), r.get("session_id", ""), r["timestamp"])
+            )
+        self.rel_db.commit()
 
     # ── Relations (SQLite) ──
 
