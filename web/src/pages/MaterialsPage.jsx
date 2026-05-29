@@ -79,7 +79,8 @@ export default function MaterialsPage() {
 
   function formatTime(iso) {
     if (!iso) return ''
-    const d = new Date(iso)
+    // Handle Unix timestamp in seconds (convert to milliseconds)
+    const d = typeof iso === 'number' ? new Date(iso * 1000) : new Date(iso)
     return d.toLocaleDateString('zh-CN', {
       month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
     })
