@@ -90,7 +90,7 @@ export default function MaterialsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">📦 素材库</h1>
+          <h1 className="text-2xl font-bold text-gray-900"> 素材库</h1>
           <p className="text-sm text-gray-500 mt-1">管理你的文件素材，在碰撞时附加参考</p>
         </div>
         <button
@@ -152,7 +152,7 @@ export default function MaterialsPage() {
             >
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-                  <span className="text-lg">📄</span>
+                  <span className="text-lg text-gray-400">[F]</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-800 truncate">
@@ -203,13 +203,13 @@ export default function MaterialsPage() {
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-800 truncate">
-                📄 {preview.filename}
+                 {preview.filename}
               </h3>
               <button
                 onClick={() => setPreview(null)}
                 className="text-gray-400 hover:text-gray-600 cursor-pointer text-lg"
               >
-                ✕
+                ×
               </button>
             </div>
             <div className="px-6 py-4 overflow-y-auto max-h-[55vh]">

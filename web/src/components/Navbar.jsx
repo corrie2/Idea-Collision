@@ -1,10 +1,10 @@
 import { Link, useLocation } from 'react-router-dom'
 
 const NAV_ITEMS = [
-  { path: '/', label: '碰撞工坊', icon: '⚡' },
-  { path: '/materials', label: '素材库', icon: '📦' },
-  { path: '/history', label: '历史记录', icon: '📋' },
-  { path: '/knowledge', label: '知识库', icon: '🧠' },
+  { path: '/', label: '碰撞工坊', icon: '' },
+  { path: '/materials', label: '素材库', icon: '' },
+  { path: '/history', label: '历史记录', icon: '' },
+  { path: '/knowledge', label: '知识库', icon: '' },
 ]
 
 export default function Navbar() {
@@ -16,7 +16,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 no-underline">
-            <span className="text-xl">💥</span>
+            <span className="text-xl font-bold text-amber-500">IC</span>
             <span className="text-base font-semibold text-gray-900 tracking-tight">
               Idea Collision
             </span>

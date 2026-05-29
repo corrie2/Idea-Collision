@@ -264,7 +264,7 @@ export default function CollisionPage() {
               className="w-full px-3 py-2 text-xs text-red-500 bg-red-50 rounded-lg
                          hover:bg-red-100 transition-colors cursor-pointer"
             >
-              ⛔ 取消碰撞
+               取消碰撞
             </button>
           )}
 
@@ -275,7 +275,7 @@ export default function CollisionPage() {
               className="w-full px-3 py-2 text-xs text-amber-600 bg-amber-50 rounded-lg
                          hover:bg-amber-100 transition-colors cursor-pointer"
             >
-              📊 查看完整报告
+               查看完整报告
             </button>
           )}
         </div>
@@ -309,16 +309,16 @@ export default function CollisionPage() {
         {qualityScore && (
           <div className="mt-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-800">📊 碰撞质量评估</h3>
+              <h3 className="text-sm font-semibold text-gray-800"> 碰撞质量评估</h3>
               <span className="text-2xl font-bold text-amber-600">{qualityScore.overall?.toFixed(1)}<span className="text-sm text-gray-400">/10</span></span>
             </div>
             <div className="grid grid-cols-5 gap-2">
               {[
-                { key: 'novelty', label: '新颖性', icon: '✨' },
-                { key: 'depth', label: '深度', icon: '🔬' },
-                { key: 'diversity', label: '多样性', icon: '🎨' },
-                { key: 'feasibility', label: '可行性', icon: '⚙️' },
-                { key: 'intensity', label: '碰撞强度', icon: '⚡' },
+                { key: 'novelty', label: '新颖性', icon: '' },
+                { key: 'depth', label: '深度', icon: '' },
+                { key: 'diversity', label: '多样性', icon: '' },
+                { key: 'feasibility', label: '可行性', icon: '' },
+                { key: 'intensity', label: '碰撞强度', icon: '' },
               ].map(dim => (
                 <div key={dim.key} className="text-center">
                   <div className="text-lg mb-0.5">{dim.icon}</div>

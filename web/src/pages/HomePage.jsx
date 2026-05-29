@@ -5,13 +5,13 @@ import ModelSelector from '../components/ModelSelector'
 import ApiKeyManager from '../components/ApiKeyManager'
 
 const AGENTS = [
-  { id: 'provocateur', emoji: '🔥', name: '挑衅者', desc: '提出颠覆性视角，挑战常规', color: '#ef4444' },
-  { id: 'researcher', emoji: '📚', name: '研究者', desc: '提供事实依据与深度分析', color: '#3b82f6' },
-  { id: 'critic', emoji: '🎯', name: '批评家', desc: '发现逻辑漏洞与潜在风险', color: '#8b5cf6' },
-  { id: 'connector', emoji: '🔗', name: '连接者', desc: '跨领域联想与类比推理', color: '#10b981' },
-  { id: 'experimenter', emoji: '🧪', name: '实验者', desc: '设计验证方案与原型构想', color: '#f97316' },
-  { id: 'synthesizer', emoji: '🧬', name: '融合者', desc: '整合所有观点，产出综合方案', color: '#06b6d4' },
-  { id: 'pragmatist', emoji: '⚙️', name: '务实者', desc: '评估可行性，提供落地建议', color: '#6b7280' },
+  { id: 'provocateur', emoji: '', name: '挑衅者', desc: '提出颠覆性视角，挑战常规', color: '#ef4444' },
+  { id: 'researcher', emoji: '', name: '研究者', desc: '提供事实依据与深度分析', color: '#3b82f6' },
+  { id: 'critic', emoji: '', name: '批评家', desc: '发现逻辑漏洞与潜在风险', color: '#8b5cf6' },
+  { id: 'connector', emoji: '', name: '连接者', desc: '跨领域联想与类比推理', color: '#10b981' },
+  { id: 'experimenter', emoji: '', name: '实验者', desc: '设计验证方案与原型构想', color: '#f97316' },
+  { id: 'synthesizer', emoji: '', name: '融合者', desc: '整合所有观点，产出综合方案', color: '#06b6d4' },
+  { id: 'pragmatist', emoji: '', name: '务实者', desc: '评估可行性，提供落地建议', color: '#6b7280' },
 ]
 
 export default function HomePage() {
@@ -134,7 +134,7 @@ export default function HomePage() {
       {/* Hero */}
       <div className="text-center py-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-3">
-          💥 Idea Collision
+           Idea Collision
         </h1>
         <p className="text-base text-gray-500 max-w-lg mx-auto leading-relaxed">
           让多个 AI 智能体围绕你的主题展开激烈碰撞，
@@ -247,7 +247,7 @@ export default function HomePage() {
                     }}
                     className="sr-only"
                   />
-                  <span className="text-sm text-gray-400">📄</span>
+                  <span className="text-sm text-gray-400">[ ]</span>
                   <span className="text-sm text-gray-700 truncate flex-1">{m.filename}</span>
                   <span className="text-xs text-gray-300 shrink-0">
                     {m.pages > 0 && `${m.pages} 页`}
@@ -267,7 +267,7 @@ export default function HomePage() {
             onClick={() => setShowApiKeys(!showApiKeys)}
             className="text-xs text-amber-600 hover:text-amber-700 transition-colors cursor-pointer"
           >
-            {showApiKeys ? '收起' : '🔑 API 密钥管理'}
+            {showApiKeys ? '收起' : ' API 密钥管理'}
           </button>
         </div>
 
@@ -407,7 +407,7 @@ export default function HomePage() {
       <div className="text-center py-4">
         {selectedMaterialIds.length > 0 && (
           <p className="text-xs text-amber-600 mb-3">
-            📎 已附加 {selectedMaterialIds.length} 个素材文件
+             已附加 {selectedMaterialIds.length} 个素材文件
           </p>
         )}
         <button
@@ -426,7 +426,7 @@ export default function HomePage() {
               正在启动...
             </span>
           ) : (
-            `⚡ 开始碰撞 (${enabledCount} 智能体 × ${rounds} 轮)`
+            ` 开始碰撞 (${enabledCount} 智能体 × ${rounds} 轮)`
           )}
         </button>
       </div>

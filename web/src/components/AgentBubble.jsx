@@ -2,20 +2,20 @@ import { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 
 const AGENT_META = {
-  provocateur: { emoji: '🔥', name: '挑衅者', color: '#ef4444', bg: 'bg-red-50', border: 'border-red-100' },
-  researcher: { emoji: '📚', name: '研究者', color: '#3b82f6', bg: 'bg-blue-50', border: 'border-blue-100' },
-  critic: { emoji: '🎯', name: '批评家', color: '#8b5cf6', bg: 'bg-purple-50', border: 'border-purple-100' },
-  connector: { emoji: '🔗', name: '连接者', color: '#10b981', bg: 'bg-green-50', border: 'border-green-100' },
-  experimenter: { emoji: '🧪', name: '实验者', color: '#f97316', bg: 'bg-orange-50', border: 'border-orange-100' },
-  synthesizer: { emoji: '🧬', name: '融合者', color: '#06b6d4', bg: 'bg-cyan-50', border: 'border-cyan-100' },
-  pragmatist: { emoji: '⚙️', name: '务实者', color: '#6b7280', bg: 'bg-gray-50', border: 'border-gray-100' },
+  provocateur: { emoji: '', name: '挑衅者', color: '#ef4444', bg: 'bg-red-50', border: 'border-red-100' },
+  researcher: { emoji: '', name: '研究者', color: '#3b82f6', bg: 'bg-blue-50', border: 'border-blue-100' },
+  critic: { emoji: '', name: '批评家', color: '#8b5cf6', bg: 'bg-purple-50', border: 'border-purple-100' },
+  connector: { emoji: '', name: '连接者', color: '#10b981', bg: 'bg-green-50', border: 'border-green-100' },
+  experimenter: { emoji: '', name: '实验者', color: '#f97316', bg: 'bg-orange-50', border: 'border-orange-100' },
+  synthesizer: { emoji: '', name: '融合者', color: '#06b6d4', bg: 'bg-cyan-50', border: 'border-cyan-100' },
+  pragmatist: { emoji: '', name: '务实者', color: '#6b7280', bg: 'bg-gray-50', border: 'border-gray-100' },
 }
 
 function getAgentMeta(agentId) {
   const key = Object.keys(AGENT_META).find(k =>
     agentId?.toLowerCase()?.includes(k)
   )
-  return key ? AGENT_META[key] : { emoji: '🤖', name: agentId || '未知', color: '#6b7280', bg: 'bg-gray-50', border: 'border-gray-100' }
+  return key ? AGENT_META[key] : { emoji: '', name: agentId || '未知', color: '#6b7280', bg: 'bg-gray-50', border: 'border-gray-100' }
 }
 
 // Inline markdown styles for bubble content

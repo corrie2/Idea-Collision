@@ -22,7 +22,7 @@ def generate_report(result: dict, output_dir: str = "output") -> str:
 
     # Build content
     lines = [
-        f"# 🧠 Idea Collision Report",
+        f"#  Idea Collision Report",
         f"",
         f"**主题**: {topic}",
         f"**时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
@@ -31,7 +31,7 @@ def generate_report(result: dict, output_dir: str = "output") -> str:
         f"",
         f"---",
         f"",
-        f"## 📝 碰撞过程",
+        f"##  碰撞过程",
         f"",
     ]
 
@@ -70,13 +70,13 @@ def generate_report(result: dict, output_dir: str = "output") -> str:
 
     # Final synthesis
     lines.extend([
-        f"## 🎯 最终融合方案",
+        f"##  最终融合方案",
         f"",
         synthesis,
         f"",
         f"---",
         f"",
-        f"## 🔍 方案审查（批评家）",
+        f"##  方案审查（批评家）",
         f"",
         review,
         f"",

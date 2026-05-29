@@ -8,7 +8,7 @@ import uuid
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -192,7 +192,7 @@ async def delete_collision(session_id: str):
         store = get_store()
         _delete_session_knowledge(store, session_id)
     except Exception as e:
-        print(f"  ⚠ Failed to delete knowledge: {e}")
+        print(f"   Failed to delete knowledge: {e}")
 
     # 3. Remove from sessions dict and save
     del sessions[session_id]
@@ -279,6 +279,63 @@ async def knowledge_stats(session_id: str):
     if not session:
         return JSONResponse(status_code=404, content={"error": "Session not found"})
     return session.get("knowledge_stats", {})
+
+
+@app.get("/api/knowledge/ideas")
+async def knowledge_ideas(session_id: str = None, domain: str = None, limit: int = 200):
+    """Get all ideas from the knowledge base."""
+    store = get_store()
+    if not store:
+        return JSONResponse(status_code=503, content={"error": "Knowledge base not available"})
+    try:
+        where = {}
+        if session_id:
+            where["session_id"] = session_id
+        if domain:
+            where["domain"] = domain
+        results = store.ideas_col.get(where=where if where else None, limit=limit)
+        items = []
+        if results and results["ids"]:
+            for i, doc_id in enumerate(results["ids"]):
+                meta = results["metadatas"][i] if results["metadatas"] else {}
+                doc = results["documents"][i] if results["documents"] else ""
+                items.append({
+                    "id": doc_id,
+                    "content": doc,
+                    "domain": meta.get("domain", ""),
+                    "session_id": meta.get("session_id", ""),
+                })
+        return {"ideas": items, "total": len(items)}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/api/knowledge/concepts")
+async def knowledge_concepts(domain: str = None, limit: int = 200):
+    """Get all concepts from the knowledge base."""
+    store = get_store()
+    if not store:
+        return JSONResponse(status_code=503, content={"error": "Knowledge base not available"})
+    try:
+        concepts = store.get_all_concepts()
+        if domain:
+            concepts = [c for c in concepts if c["metadata"].get("domain") == domain]
+        items = []
+        for c in concepts[:limit]:
+            meta = c["metadata"]
+            items.append({
+                "id": c["id"],
+                "name": meta.get("name", ""),
+                "description": meta.get("description", ""),
+                "domain": meta.get("domain", ""),
+                "mention_count": meta.get("mention_count", 1),
+                "first_seen": meta.get("first_seen", ""),
+                "last_seen": meta.get("last_seen", ""),
+            })
+        items.sort(key=lambda x: x["mention_count"], reverse=True)
+        return {"concepts": items, "total": len(items)}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.get("/api/knowledge/graph")
@@ -703,6 +760,17 @@ def get_store():
     return _global_store
 
 
+# Preload embedding model in background at import time
+import threading as _threading
+def _preload_store():
+    try:
+        get_store()
+        print("  Knowledge store preloaded (embedding model ready)")
+    except Exception as e:
+        print(f"  Knowledge store preload failed: {e}")
+_threading.Thread(target=_preload_store, daemon=True).start()
+
+
 @app.post("/api/materials/upload")
 async def upload_materials(files: list[UploadFile] = File(...)):
     """Upload PDF/MD files → extract → store in knowledge base."""
@@ -929,6 +997,11 @@ async def _run_collision(session_id: str):
             config.api_key = gcfg["api_key"]
         if gcfg.get("base_url"):
             config.base_url = gcfg["base_url"]
+
+        # Compute disabled agents from user selection
+        enabled_ids = {ac["id"] for ac in session["agent_configs"]}
+        all_ids = set(getattr(config, "agents_order", []))
+        config.agents_disabled = [aid for aid in all_ids if aid not in enabled_ids]
 
         # Create arena
         arena = Arena(config)

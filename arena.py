@@ -33,16 +33,17 @@ class Arena:
             self._knowledge_store = KnowledgeStore(self.config)
             self._retriever = KnowledgeRetriever(self._knowledge_store, self.config)
             self._extractor = KnowledgeExtractor(self.config)
-            print("  ✓ Knowledge base initialized")
+            self._extractor._store_ref = self._knowledge_store
+            print("   Knowledge base initialized")
         except Exception as e:
-            print(f"  ⚠ Knowledge base init failed: {e}")
-            print("  ⚠ Running without knowledge base")
+            print(f"   Knowledge base init failed: {e}")
+            print("   Running without knowledge base")
             self._knowledge_store = None
 
     def run(self, topic: str) -> dict:
         """Run the full collision process. Returns structured result."""
         print(f"\n{'='*60}")
-        print(f"  🧠 Idea Collision: {topic}")
+        print(f"   Idea Collision: {topic}")
         print(f"  Agents: {len(self.agents)} | Rounds: {self.config.num_rounds}")
         agent_names = [a.name for a in self.agents]
         print(f"  Team: {', '.join(agent_names)}")
@@ -57,16 +58,16 @@ class Arena:
         # Step 1: Retrieve relevant knowledge for each agent
         context_map = {}
         if self._retriever:
-            print("  🔍 Querying knowledge base...")
+            print("   Querying knowledge base...")
             context_map = self._retriever.build_context(topic, self.agents)
             injected = sum(1 for v in context_map.values() if v)
             if injected:
-                print(f"  🔍 Knowledge injected for {injected}/{len(self.agents)} agents")
+                print(f"   Knowledge injected for {injected}/{len(self.agents)} agents")
             else:
-                print(f"  🔍 No relevant knowledge found (first collision on this topic?)")
+                print(f"   No relevant knowledge found (first collision on this topic?)")
 
         # Round 1: Each agent generates initial ideas
-        print(f"\n▶ Round 1: 初始想法生成")
+        print(f"\n Round 1: 初始想法生成")
         round1_ideas = {}
         for agent in self.agents:
             extra = context_map.get(agent.name, "")
@@ -74,11 +75,11 @@ class Arena:
             round1_ideas[agent.name] = ideas
             entry = {"round": 1, "agent": agent.name, "content": ideas}
             self.history.append(entry)
-            print(f"  ✦ {agent.name}: {len(ideas)} 个想法")
+            print(f"   {agent.name}: {len(ideas)} 个想法")
 
         # Rounds 2-N: Collision rounds
         for r in range(2, self.config.num_rounds + 1):
-            print(f"\n▶ Round {r}: 碰撞交锋")
+            print(f"\n Round {r}: 碰撞交锋")
             history_text = self._format_history()
 
             for agent in self.agents:
@@ -87,10 +88,10 @@ class Arena:
                 entry = {"round": r, "agent": agent.name, "content": response}
                 self.history.append(entry)
                 preview = response[:60].replace('\n', ' ') + "..."
-                print(f"  ✦ {agent.name}: {preview}")
+                print(f"   {agent.name}: {preview}")
 
         # Final: Synthesizer produces synthesis
-        print(f"\n▶ 最终融合")
+        print(f"\n 最终融合")
         synthesizer = self.agents[2] if len(self.agents) > 2 else self.agents[0]
         # Find synthesizer by name if possible
         for a in self.agents:
@@ -119,7 +120,7 @@ class Arena:
         self.history.append({"round": "review", "agent": critic.name, "content": review})
 
         print(f"\n{'='*60}")
-        print(f"  ✅ 碰撞完成！共 {len(self.history)} 条记录")
+        print(f"   碰撞完成！共 {len(self.history)} 条记录")
         print(f"{'='*60}\n")
 
         # Step 5: Extract and store knowledge
@@ -134,7 +135,7 @@ class Arena:
                     review=review,
                 )
             except Exception as e:
-                print(f"  ⚠ Knowledge extraction failed: {e}")
+                print(f"   Knowledge extraction failed: {e}")
 
         # Step 6: Evaluate collision quality
         try:
@@ -149,7 +150,7 @@ class Arena:
             )
             print(evaluator.format_score(self.last_score))
         except Exception as e:
-            print(f"  ⚠ Quality evaluation failed: {e}")
+            print(f"   Quality evaluation failed: {e}")
 
         return {
             "topic": topic,

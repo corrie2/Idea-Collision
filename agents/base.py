@@ -78,7 +78,7 @@ class BaseAgent:
         # Check if content was truncated (finish_reason == "length")
         finish_reason = resp.choices[0].finish_reason
         if finish_reason == "length" and max_continuations > 0:
-            print(f"    ⚠ {self.name}: Content truncated, continuing...")
+            print(f"     {self.name}: Content truncated, continuing...")
             # Continue generation
             continuation_messages = full_messages + [
                 {"role": "assistant", "content": content},

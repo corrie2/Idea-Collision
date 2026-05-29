@@ -23,7 +23,7 @@ def discover_agents(config) -> list:
         try:
             module = importlib.import_module(f'agents.{module_name}')
         except Exception as e:
-            print(f"  ⚠ Failed to import agents.{module_name}: {e}")
+            print(f"   Failed to import agents.{module_name}: {e}")
             continue
 
         for name, cls in inspect.getmembers(module, inspect.isclass):
@@ -44,7 +44,7 @@ def discover_agents(config) -> list:
             if key in discovered:
                 agents.append(discovered[key])
             else:
-                print(f"  ⚠ Agent '{key}' not found, skipping")
+                print(f"   Agent '{key}' not found, skipping")
         # Add any discovered agents not in order list
         for key, agent in discovered.items():
             if key not in order and key not in disabled:

@@ -78,8 +78,8 @@ export default function ReportPage() {
   })
 
   function roundLabel(r) {
-    if (r === 'final') return '🧬 最终融合'
-    if (r === 'review') return '🎯 方案审查'
+    if (r === 'final') return ' 最终融合'
+    if (r === 'review') return ' 方案审查'
     return `第 ${r} 轮 · 碰撞交锋`
   }
 
@@ -164,7 +164,7 @@ export default function ReportPage() {
                   : 'bg-white text-cyan-600 hover:bg-cyan-50 border border-cyan-200'
               }`}
             >
-              🧬 融合
+               融合
             </button>
           )}
           {review && (
@@ -176,7 +176,7 @@ export default function ReportPage() {
                   : 'bg-white text-purple-600 hover:bg-purple-50 border border-purple-200'
               }`}
             >
-              🎯 审查
+               审查
             </button>
           )}
         </div>
@@ -197,7 +197,7 @@ export default function ReportPage() {
                     r === 'review' ? 'bg-purple-100 text-purple-600' :
                     'bg-amber-100 text-amber-600'}
                 `}>
-                  {r === 'final' ? '🧬' : r === 'review' ? '🎯' : r}
+                  {r === 'final' ? '' : r === 'review' ? '' : r}
                 </span>
                 {roundLabel(r)}
               </h2>
@@ -243,7 +243,7 @@ export default function ReportPage() {
           className="inline-flex items-center gap-2 px-6 py-2.5 text-sm text-amber-600 bg-amber-50
                      rounded-full hover:bg-amber-100 transition-colors no-underline"
         >
-          ⚡ 发起新碰撞
+           发起新碰撞
         </Link>
       </div>
 

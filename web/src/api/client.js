@@ -61,6 +61,23 @@ export async function getKnowledgeGraph(domain = null, limit = 200) {
   return res.json()
 }
 
+export async function getKnowledgeIdeas(sessionId = null, domain = null, limit = 200) {
+  let url = `${BASE}/api/knowledge/ideas?limit=${limit}`
+  if (sessionId) url += `&session_id=${encodeURIComponent(sessionId)}`
+  if (domain) url += `&domain=${encodeURIComponent(domain)}`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error('获取想法列表失败')
+  return res.json()
+}
+
+export async function getKnowledgeConcepts(domain = null, limit = 200) {
+  let url = `${BASE}/api/knowledge/concepts?limit=${limit}`
+  if (domain) url += `&domain=${encodeURIComponent(domain)}`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error('获取概念列表失败')
+  return res.json()
+}
+
 export async function exportKnowledge(format = 'json') {
   const res = await fetch(`${BASE}/api/knowledge/export?format=${format}`)
   if (!res.ok) throw new Error('导出失败')

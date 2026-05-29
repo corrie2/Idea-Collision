@@ -61,7 +61,7 @@ export default function PdfUploader({ onSessionCreated }) {
     <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-gray-800">
-          📄 PDF 知识注入
+           PDF 知识注入
           <span className="ml-2 text-xs font-normal text-gray-400">可选</span>
         </h2>
         {result && (
@@ -105,7 +105,7 @@ export default function PdfUploader({ onSessionCreated }) {
               </div>
             ) : (
               <>
-                <p className="text-2xl mb-2">📎</p>
+                <p className="text-2xl mb-2"></p>
                 <p className="text-sm text-gray-600 font-medium">
                   拖拽 PDF 到此处，或点击选择文件
                 </p>
@@ -124,7 +124,7 @@ export default function PdfUploader({ onSessionCreated }) {
         /* Upload results */
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 rounded-lg px-3 py-2">
-            <span>✅</span>
+            <span></span>
             <span>{result.files.length} 个文件已解析，共 {result.files.reduce((s, f) => s + f.pages, 0)} 页</span>
           </div>
 
@@ -136,7 +136,7 @@ export default function PdfUploader({ onSessionCreated }) {
               >
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium text-gray-800 truncate">
-                    📑 {file.filename}
+                     {file.filename}
                   </p>
                   <span className="text-xs text-gray-400 shrink-0 ml-2">
                     {file.pages} 页 · {file.chunks_stored} 块

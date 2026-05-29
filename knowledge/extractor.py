@@ -265,19 +265,30 @@ class KnowledgeExtractor:
         result = self._call_llm(system, prompt)
         parsed = self._parse_json(result)
         if not parsed or not isinstance(parsed, dict):
+            print(f"    ⚠ Concept/relation extraction failed: parsed={type(parsed).__name__}, result_preview={str(result)[:200]}")
             return [], []
 
         concepts = []
         for item in parsed.get("concepts", []):
             if isinstance(item, dict) and "name" in item:
+                name = item["name"].strip()
+                desc = item.get("description", "").strip()
+                # Quality filters
+                if len(name) < 3:
+                    continue  # Too short
+                if len(name.split()) == 1 and len(name) < 4:
+                    continue  # Single short word (likely noise)
+                if not desc:
+                    continue  # No description
                 concepts.append(Concept(
-                    name=item["name"],
-                    description=item.get("description", ""),
+                    name=name,
+                    description=desc,
                     domain=domain,
                 ))
 
         # Build concept ID map for current session concepts
         concept_map = {c.name: c.id for c in concepts}
+        print(f"    Extracted {len(concepts)} concepts, {len(parsed.get('relations', []))} raw relations")
 
         # Also load existing concepts from knowledge base for cross-session matching
         existing_concepts = {}
@@ -329,6 +340,8 @@ class KnowledgeExtractor:
             text, session_id, ideas, critiques, insights, concepts
         )
         relations.extend(cross_relations)
+        matched = len(relations) - len(cross_relations)
+        print(f"    Matched {matched} concept-to-concept relations, {len(cross_relations)} cross-entity relations")
 
         return concepts, relations
 
